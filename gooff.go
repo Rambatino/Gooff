@@ -119,11 +119,11 @@ func (t *Transport) store(req *http.Request, res *http.Response) error {
 
 		var b bytes.Buffer
 		writer := bufio.NewWriter(&b)
-		err := res.Write(writer)
-		if err != nil {
+		if err := res.Write(writer); err != nil {
 			return err
 		}
 		writer.Flush()
+
 		// must readd again
 		res.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 		return txn.Set(key(req), b.Bytes())
