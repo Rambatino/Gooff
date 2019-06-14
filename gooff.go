@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -16,17 +17,22 @@ import (
 type Transport struct {
 	Transport      http.RoundTripper
 	preferDatabase bool
+	only200        bool
 	db             *badger.DB
+}
+
+func init() {
+	GoOffline("", true, true)
 }
 
 // GoOffline returns the default transport, including whether to prefer db
 // And sets up the database
-func GoOffline(dbPath string, preferDatabase bool) *Transport {
+func GoOffline(dbPath string, preferDatabase, only200 bool) {
 	db, err := setupDatabase(dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Transport{http.DefaultTransport, preferDatabase, db}
+	http.DefaultTransport = &Transport{http.DefaultTransport, preferDatabase, only200, db}
 }
 
 func setupDatabase(dbPath string) (*badger.DB, error) {
@@ -62,7 +68,6 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			return resp, nil
 		}
 	}
-
 	resp, err = t.Transport.RoundTrip(req)
 
 	if err != nil {
@@ -72,8 +77,10 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 
-	if err = t.store(req, resp); err != nil {
-		return nil, err
+	if !t.only200 || (t.only200 && resp.StatusCode == 200) {
+		if err = t.store(req, resp); err != nil {
+			return nil, err
+		}
 	}
 	return resp, err
 }
@@ -104,22 +111,23 @@ func (t *Transport) fetch(req *http.Request) (*http.Response, error) {
 
 func (t *Transport) store(req *http.Request, res *http.Response) error {
 	return t.db.Update(func(txn *badger.Txn) error {
-		l := lol{}
-		err := res.Write(&l)
+
+		// capture the bytes
+		bodyBytes, _ := ioutil.ReadAll(res.Body)
+		// must readd the bytes
+		res.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+
+		var b bytes.Buffer
+		writer := bufio.NewWriter(&b)
+		err := res.Write(writer)
 		if err != nil {
 			return err
 		}
-		return txn.Set(key(req), l.b)
+		writer.Flush()
+		// must readd again
+		res.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+		return txn.Set(key(req), b.Bytes())
 	})
-}
-
-type lol struct {
-	b []byte
-}
-
-func (l *lol) Write(p []byte) (int, error) {
-	l.b = append([]byte{}, p...)
-	return 0, nil
 }
 
 func key(req *http.Request) []byte {
