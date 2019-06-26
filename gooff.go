@@ -89,7 +89,11 @@ func (t *Transport) fetch(req *http.Request) (*http.Response, error) {
 	var valCopy []byte
 
 	err := t.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(key(req))
+		bytesKey, err := key(req)
+		if err != nil {
+			return err
+		}
+		item, err := txn.Get(bytesKey)
 
 		if err != nil {
 			return err
@@ -126,10 +130,24 @@ func (t *Transport) store(req *http.Request, res *http.Response) error {
 
 		// must readd again
 		res.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
-		return txn.Set(key(req), b.Bytes())
+		bytesKey, err := key(req)
+		if err != nil {
+			return err
+		}
+		return txn.Set(bytesKey, b.Bytes())
 	})
 }
 
-func key(req *http.Request) []byte {
-	return []byte(fmt.Sprintf("%s:%s", req.Method, req.URL.String()))
+func key(req *http.Request) ([]byte, error) {
+	key := fmt.Sprintf("%s:%s", req.Method, req.URL.String())
+
+	if req.Body != nil {
+		bodyBytes, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return []byte{}, err
+		}
+		req.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+		key += ":" + string(bodyBytes)
+	}
+	return []byte(key), nil
 }
