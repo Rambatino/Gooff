@@ -130,6 +130,9 @@ func (t *Transport) store(req *http.Request, res *http.Response) error {
 
 		// must readd again
 		res.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+
+		log.Println("Caching endpoint:", req.URL.String())
+
 		bytesKey, err := key(req)
 		if err != nil {
 			return err
