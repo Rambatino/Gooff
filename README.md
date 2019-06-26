@@ -27,7 +27,7 @@ Another great benefit of this library is that it can enable you to have consiste
 go get github.com/Rambatino/gooff
 ```
 
-## Usage
+## Usage
 
 Only support the side-effects use case for quick switching on and off
 
