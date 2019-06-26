@@ -39,6 +39,8 @@ import _ "github.com/Rambatino/gooff"
 
 And that's it!
 
+To delete the db just run: `rm -Rf /tmp/gooff` in your favourite terminal
+
 ## Some notes on the package
 
 It will cache all your (http.Status == 200) requests and use the cached value when making repeated requests.
