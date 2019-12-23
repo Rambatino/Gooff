@@ -41,11 +41,7 @@ func setupDatabase(dbPath string) (*badger.DB, error) {
 	}
 	os.MkdirAll(dbPath, os.ModePerm)
 
-	opts := badger.DefaultOptions
-	opts.Dir = dbPath + "/gooff"
-	opts.ValueDir = dbPath + "/gooff"
-
-	return badger.Open(opts)
+	return badger.Open(badger.DefaultOptions(dbPath + "/gooff"))
 }
 
 // RoundTrip is the core part of this module and implements http.RoundTripper.
