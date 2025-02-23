@@ -95,12 +95,10 @@ func (t *Transport) fetch(req *http.Request) (*http.Response, error) {
 			return err
 		}
 
-		err = item.Value(func(val []byte) error {
+		return item.Value(func(val []byte) error {
 			valCopy = append([]byte{}, val...)
 			return nil
 		})
-
-		return nil
 	})
 
 	if err != nil {
